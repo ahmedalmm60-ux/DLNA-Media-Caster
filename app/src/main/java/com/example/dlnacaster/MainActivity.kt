@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.HttpURLConnection
@@ -30,14 +32,14 @@ class MainActivity : AppCompatActivity() {
         mirrorButton = findViewById(R.id.mirrorButton)
 
         scanButton.setOnClickListener {
-            statusText.text = "جاري البحث عن رسيفر MediaStar عبر الشبكة..."
+            statusText.text = "جاري البحث عن رسيفر MediaStar وكشف منافذه..."
             searchAndConnectDlna()
         }
 
         mirrorButton.setOnClickListener {
             if (detectedReceiverIp != null) {
-                statusText.text = "جاري إرسال أمر التشغيل الإجباري للرسيفر ($detectedReceiverIp)..."
-                sendForcedMediaCommand(detectedReceiverIp!!)
+                statusText.text = "جاري جلب وصف الرسيفر وبث الفيديو ($detectedReceiverIp)..."
+                discoverAndStreamToReceiver(detectedReceiverIp!!)
             } else {
                 statusText.text = "الرجاء الضغط على زر البحث أولاً لاكتشاف الرسيفر!"
             }
@@ -86,7 +88,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (foundIp != null) {
                         detectedReceiverIp = foundIp
-                        statusText.text = "تم العثور على الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر بدء البث."
+                        statusText.text = "تم اكتشاف الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر بدء البث."
                     } else {
                         statusText.text = "لم يتم العثور على الرسيفر. تأكد من اتصال الواي فاي."
                     }
@@ -102,23 +104,57 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendForcedMediaCommand(ip: String) {
+    private fun discoverAndStreamToReceiver(ip: String) {
         thread {
             try {
-                val videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4"
-                
-                val controlPaths = listOf(
-                    "/upnp/control/AVTransport",
-                    "/AVTransport/control",
-                    "/upnp/control/connection_manager",
-                    "/"
-                )
-
                 val ports = listOf(49152, 8080, 5000, 1900, 80, 49153, 49154)
-                var success = false
+                var controlUrlFound: String? = null
 
-                val soapAction = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
-                val soapBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+                for (port in ports) {
+                    try {
+                        val descUrls = listOf(
+                            "http://$ip:$port/description.xml",
+                            "http://$ip:$port/buffet/descs/device_description.xml",
+                            "http://$ip:$port/upnp/desc.xml"
+                        )
+                        
+                        for (descUrl in descUrls) {
+                            try {
+                                val url = URL(descUrl)
+                                val conn = url.openConnection() as HttpURLConnection
+                                conn.connectTimeout = 1000
+                                conn.readTimeout = 1000
+                                if (conn.responseCode == 200) {
+                                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                                    val response = StringBuilder()
+                                    var line: String?
+                                    while (reader.readLine().also { line = it } != null) {
+                                        response.append(line)
+                                    }
+                                    reader.close()
+                                    
+                                    val xml = response.toString()
+                                    if (xml.contains("AVTransport")) {
+                                        controlUrlFound = "http://$ip:$port/upnp/control/AVTransport"
+                                        break
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                // متابعة الفحص
+                            }
+                        }
+                        if (controlUrlFound != null) break
+                    } catch (e: Exception) {
+                        // متابعة المنفذ التالي
+                    }
+                }
+
+                val finalControlUrl = controlUrlFound ?: "http://$ip:49152/upnp/control/AVTransport"
+
+                val videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4"
+                val soapActionSet = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
+                
+                val setBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
                         "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
                         "<s:Body>" +
                         "<u:SetAVTransportURI xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">" +
@@ -129,58 +165,44 @@ class MainActivity : AppCompatActivity() {
                         "</s:Body>" +
                         "</s:Envelope>"
 
-                for (port in ports) {
-                    for (path in controlPaths) {
-                        try {
-                            val url = URL("http://$ip:$port$path")
-                            val conn = url.openConnection() as HttpURLConnection
-                            conn.requestMethod = "POST"
-                            conn.setRequestProperty("Host", "$ip:$port")
-                            conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
-                            conn.setRequestProperty("SOAPAction", "\"$soapAction\"")
-                            conn.setRequestProperty("Connection", "Keep-Alive")
-                            conn.doOutput = true
-                            conn.connectTimeout = 1500
-                            conn.readTimeout = 1500
+                val url = URL(finalControlUrl)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
+                conn.setRequestProperty("SOAPAction", "\"$soapActionSet\"")
+                conn.doOutput = true
+                conn.connectTimeout = 2000
 
-                            val bytes = soapBody.toByteArray(Charsets.UTF_8)
-                            conn.setRequestProperty("Content-Length", bytes.size.toString())
+                val setBytes = setBody.toByteArray(Charsets.UTF_8)
+                conn.setRequestProperty("Content-Length", setBytes.size.toString())
+                conn.outputStream.write(setBytes)
+                conn.outputStream.flush()
 
-                            conn.outputStream.write(bytes)
-                            conn.outputStream.flush()
-
-                            val responseCode = conn.responseCode
-                            if (responseCode == 200 || responseCode == 500) {
-                                sendPlayCommand(ip, port, path)
-                                success = true
-                                break
-                            }
-                        } catch (e: Exception) {
-                            // متابعة التجربة
-                        }
+                val responseCode = conn.responseCode
+                
+                if (responseCode == 200 || responseCode == 500) {
+                    sendPlayAction(finalControlUrl)
+                    runOnUiThread {
+                        statusText.text = "🎉 تم بث الفيديو بنجاح إلى الرسيفر! استمتع بالشاشة 📺"
                     }
-                    if (success) break
-                }
-
-                runOnUiThread {
-                    if (success) {
-                        statusText.text = "🎉 تم إرسال أمر التشغيل بنجاح إلى الرسيفر! تابع الشاشة 📺"
-                    } else {
-                        statusText.text = "⚠️ الرسيفر متصل ($ip) ولكن تأكد من تفعيل خاصية DLNA DMR بالرسيفر."
+                } else {
+                    runOnUiThread {
+                        statusText.text = "⚠️ استجاب الرسيفر ولكن برمز الحالة: $responseCode"
                     }
                 }
+
             } catch (e: Exception) {
                 runOnUiThread {
-                    statusText.text = "❌ حدث خطأ أثناء الاتصال بالرسيفر."
+                    statusText.text = "❌ فشل الاتصال بخدمة الرسيفر الداخلية."
                 }
             }
         }
     }
 
-    private fun sendPlayCommand(ip: String, port: Int, path: String) {
+    private fun sendPlayAction(controlUrl: String) {
         try {
-            val soapAction = "urn:schemas-upnp-org:service:AVTransport:1#Play"
-            val soapBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+            val soapActionPlay = "urn:schemas-upnp-org:service:AVTransport:1#Play"
+            val playBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
                     "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
                     "<s:Body>" +
                     "<u:Play xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">" +
@@ -190,18 +212,17 @@ class MainActivity : AppCompatActivity() {
                     "</s:Body>" +
                     "</s:Envelope>"
 
-            val url = URL("http://$ip:$port$path")
+            val url = URL(controlUrl)
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
-            conn.setRequestProperty("Host", "$ip:$port")
             conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
-            conn.setRequestProperty("SOAPAction", "\"$soapAction\"")
+            conn.setRequestProperty("SOAPAction", "\"$soapActionPlay\"")
             conn.doOutput = true
-            conn.connectTimeout = 1500
-            
-            val bytes = soapBody.toByteArray(Charsets.UTF_8)
-            conn.setRequestProperty("Content-Length", bytes.size.toString())
-            conn.outputStream.write(bytes)
+            conn.connectTimeout = 2000
+
+            val playBytes = playBody.toByteArray(Charsets.UTF_8)
+            conn.setRequestProperty("Content-Length", playBytes.size.toString())
+            conn.outputStream.write(playBytes)
             conn.outputStream.flush()
             conn.responseCode
         } catch (e: Exception) {
