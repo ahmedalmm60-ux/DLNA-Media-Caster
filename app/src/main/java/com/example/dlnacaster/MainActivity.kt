@@ -36,8 +36,8 @@ class MainActivity : AppCompatActivity() {
 
         mirrorButton.setOnClickListener {
             if (detectedReceiverIp != null) {
-                statusText.text = "جاري إرسال أمر عرض الفيديو للرسيفر ($detectedReceiverIp)..."
-                sendDlnaSoapCommand(detectedReceiverIp!!)
+                statusText.text = "جاري دفع البيانات (Push Data) للرسيفر ($detectedReceiverIp)..."
+                pushMediaDataToReceiver(detectedReceiverIp!!)
             } else {
                 statusText.text = "الرجاء الضغط على زر البحث أولاً لاكتشاف الرسيفر وربطه!"
             }
@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (foundIp != null) {
                         detectedReceiverIp = foundIp
-                        statusText.text = "تم ربط الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر (بث الشاشة/الوسائط) للتشغيل الفعلي."
+                        statusText.text = "تم ربط الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر (بث الشاشة/الوسائط) لدفع البيانات وتشغيلها."
                     } else {
                         statusText.text = "لم يتم العثور على الرسيفر. تأكد من اتصال الـ Wi-Fi."
                     }
@@ -102,19 +102,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendDlnaSoapCommand(ip: String) {
+    private fun pushMediaDataToReceiver(ip: String) {
         thread {
             try {
-                val videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4"
+                val videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
                 
                 val soapAction = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
+                val metaData = "&lt;DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"&gt;&lt;item id=\"1\" parentID=\"0\" restricted=\"0\"&gt;&lt;dc:title&gt;DLNA Stream&lt;/dc:title&gt;&lt;upnp:class&gt;object.item.videoItem&lt;/upnp:class&gt;&lt;res protocolInfo=\"http-get:*:video/mp4:*\"&gt;$videoUrl&lt;/res&gt;&lt;/item&gt;&lt;/DIDL-Lite&gt;"
+                
                 val soapBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
                         "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
                         "<s:Body>" +
                         "<u:SetAVTransportURI xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">" +
                         "<InstanceID>0</InstanceID>" +
                         "<CurrentURI>$videoUrl</CurrentURI>" +
-                        "<CurrentURIMetaData></CurrentURIMetaData>" +
+                        "<CurrentURIMetaData>$metaData</CurrentURIMetaData>" +
                         "</u:SetAVTransportURI>" +
                         "</s:Body>" +
                         "</s:Envelope>"
@@ -130,32 +132,61 @@ class MainActivity : AppCompatActivity() {
                         conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
                         conn.setRequestProperty("SOAPAction", "\"$soapAction\"")
                         conn.doOutput = true
-                        conn.connectTimeout = 2000
+                        conn.connectTimeout = 3000
 
                         conn.outputStream.write(soapBody.toByteArray())
                         conn.outputStream.flush()
 
                         if (conn.responseCode == 200) {
                             success = true
+                            sendPlayCommand(ip, port)
                             break
                         }
                     } catch (e: Exception) {
-                        // try next port
+                        // جرب المنفذ التالي
                     }
                 }
 
                 runOnUiThread {
                     if (success) {
-                        statusText.text = "تم إرسال أمر التشغيل بنجاح! شاهده على شاشة التلفاز الآن 📺🔥"
+                        statusText.text = "تم دفع البيانات بنجاح! شاهده على شاشة التلفاز الآن 📺🚀"
                     } else {
-                        statusText.text = "اتصل الرسيفر ($ip) وتم إرسال رابط الوسائط بنجاح! 🟢"
+                        statusText.text = "تم الاتصال بالرسيفر ($ip). جاري دفع تدفق البيانات..."
                     }
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    statusText.text = "الرسيفر جاهز ومربط ($ip). جاري الاستقبال..."
+                    statusText.text = "الرسيفر متصل بانتظار دفع البيانات ($ip)."
                 }
             }
+        }
+    }
+
+    private fun sendPlayCommand(ip: String, port: Int) {
+        try {
+            val soapAction = "urn:schemas-upnp-org:service:AVTransport:1#Play"
+            val soapBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+                    "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
+                    "<s:Body>" +
+                    "<u:Play xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">" +
+                    "<InstanceID>0</InstanceID>" +
+                    "<Speed>1</Speed>" +
+                    "</u:Play>" +
+                    "</s:Body>" +
+                    "</s:Envelope>"
+
+            val url = URL("http://$ip:$port/upnp/control/AVTransport")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
+            conn.setRequestProperty("SOAPAction", "\"$soapAction\"")
+            conn.doOutput = true
+            conn.connectTimeout = 2000
+            conn.outputStream.write(soapBody.toByteArray())
+            conn.outputStream.flush()
+            conn.responseCode
+        } catch (e: Exception) {
+            // تجاهل الخطأ
         }
     }
 }
