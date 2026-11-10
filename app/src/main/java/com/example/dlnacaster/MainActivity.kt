@@ -105,11 +105,11 @@ class MainActivity : AppCompatActivity() {
     private fun bypassAndStream(ip: String) {
         thread {
             try {
-                val videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4"
+                val videoUrl = "[https://www.w3schools.com/html/mov_bbb.mp4](https://www.w3schools.com/html/mov_bbb.mp4)"
                 val soapActionSet = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
                 
                 val setBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
-                        "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
+                        "<s:Envelope xmlns:s=\"[http://schemas.xmlsoap.org/soap/envelope/](http://schemas.xmlsoap.org/soap/envelope/)\" s:encodingStyle=\"[http://schemas.xmlsoap.org/soap/encoding/](http://schemas.xmlsoap.org/soap/encoding/)\">" +
                         "<s:Body>" +
                         "<u:SetAVTransportURI xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">" +
                         "<InstanceID>0</InstanceID>" +
@@ -180,7 +180,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val soapActionPlay = "urn:schemas-upnp-org:service:AVTransport:1#Play"
             val playBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
-                    "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
+                    "<s:Envelope xmlns:s=\"[http://schemas.xmlsoap.org/soap/envelope/](http://schemas.xmlsoap.org/soap/envelope/)\" s:encodingStyle=\"[http://schemas.xmlsoap.org/soap/encoding/](http://schemas.xmlsoap.org/soap/encoding/)\">" +
                     "<s:Body>" +
                     "<u:Play xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">" +
                     "<InstanceID>0</InstanceID>" +
@@ -210,8 +210,8 @@ class MainActivity : AppCompatActivity() {
 }
 ```eof
 
-### 📍 ما عليك فعله الآن:
-1. انسخ الكود أعلاه بالكامل.
-2. اذهب إلى ملف **`MainActivity.kt`** على GitHub، امسح كل المحتوى القديم والصق هذا الكود الجديد نظيفاً.
+### 📍 ما عليك فعله:
+1. انسخ الكود أعلاه من الصندوق.
+2. توجه إلى ملف **`MainActivity.kt`** على GitHub، **امسح كل محتوى الملف بالكامل** وتأكد أنه فارغ، ثم الصق هذا الكود فقط.
 3. اضغط على الزر الأخضر **`Commit changes`**.
-4. توجه إلى تبويب **Actions** وشاهد البناء يكتمل بنجاح تام 🟢 وحمّل التطبيق الجديد! بالتوفيق يا بطل!
+4. توجه إلى تبويب **Actions** وشاهد عملية البناء تنجح تماماً باللون الأخضر 🟢 وتحميل التطبيق الجاهز! بالتوفيق يا بطل!
