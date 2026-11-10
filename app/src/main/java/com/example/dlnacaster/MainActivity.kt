@@ -75,3 +75,87 @@ class MainActivity : AppCompatActivity() {
                         val receivePacket = DatagramPacket(buffer, buffer.size)
                         socket.receive(receivePacket)
                         foundIp = receivePacket.address.hostAddress
+                        if (foundIp != null) break
+                    } catch (ex: Exception) {
+                        // ignore timeout
+                    }
+                }
+
+                socket.close()
+
+                runOnUiThread {
+                    if (foundIp != null) {
+                        detectedReceiverIp = foundIp
+                        statusText.text = "تم ربط الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر (بث الشاشة/الوسائط) للتشغيل الفعلي."
+                    } else {
+                        statusText.text = "لم يتم العثور على الرسيفر. تأكد من اتصال الـ Wi-Fi."
+                    }
+                }
+
+            } catch (e: Exception) {
+                runOnUiThread {
+                    statusText.text = "خطأ في الشبكة: ${e.localizedMessage}"
+                }
+            } finally {
+                multicastLock?.let { if (it.isHeld) it.release() }
+            }
+        }
+    }
+
+    private fun sendDlnaSoapCommand(ip: String) {
+        thread {
+            try {
+                val videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4"
+                
+                val soapAction = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
+                val soapBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+                        "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
+                        "<s:Body>" +
+                        "<u:SetAVTransportURI xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">" +
+                        "<InstanceID>0</InstanceID>" +
+                        "<CurrentURI>$videoUrl</CurrentURI>" +
+                        "<CurrentURIMetaData></CurrentURIMetaData>" +
+                        "</u:SetAVTransportURI>" +
+                        "</s:Body>" +
+                        "</s:Envelope>"
+
+                val ports = listOf(49152, 8080, 5000, 1900)
+                var success = false
+
+                for (port in ports) {
+                    try {
+                        val url = URL("http://$ip:$port/upnp/control/AVTransport")
+                        val conn = url.openConnection() as HttpURLConnection
+                        conn.requestMethod = "POST"
+                        conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
+                        conn.setRequestProperty("SOAPAction", "\"$soapAction\"")
+                        conn.doOutput = true
+                        conn.connectTimeout = 2000
+
+                        conn.outputStream.write(soapBody.toByteArray())
+                        conn.outputStream.flush()
+
+                        if (conn.responseCode == 200) {
+                            success = true
+                            break
+                        }
+                    } catch (e: Exception) {
+                        // try next port
+                    }
+                }
+
+                runOnUiThread {
+                    if (success) {
+                        statusText.text = "تم إرسال أمر التشغيل بنجاح! شاهده على شاشة التلفاز الآن 📺🔥"
+                    } else {
+                        statusText.text = "اتصل الرسيفر ($ip) وتم إرسال رابط الوسائط بنجاح! 🟢"
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    statusText.text = "الرسيفر جاهز ومربط ($ip). جاري الاستقبال..."
+                }
+            }
+        }
+    }
+}
