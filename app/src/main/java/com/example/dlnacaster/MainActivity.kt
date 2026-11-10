@@ -1,6 +1,8 @@
 package com.example.dlnacaster
 
 import android.content.Context
+import android.content.Intent
+import android.media.projection.MediaProjectionManager
 import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.widget.Button
@@ -15,6 +17,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var scanButton: Button
+    private lateinit var mirrorButton: Button
+    private val SCREEN_RECORD_REQUEST_CODE = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,10 +26,32 @@ class MainActivity : AppCompatActivity() {
 
         statusText = findViewById(R.id.statusText)
         scanButton = findViewById(R.id.scanButton)
+        mirrorButton = findViewById(R.id.mirrorButton)
 
         scanButton.setOnClickListener {
             statusText.text = "جاري البحث الشامل عن رسيفر MediaStar / Forever..."
             searchDlnaDevices()
+        }
+
+        mirrorButton.setOnClickListener {
+            startScreenMirroring()
+        }
+    }
+
+    private fun startScreenMirroring() {
+        val mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        val permissionIntent = mediaProjectionManager.createScreenCaptureIntent()
+        startActivityForResult(permissionIntent, SCREEN_RECORD_REQUEST_CODE)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SCREEN_RECORD_REQUEST_CODE) {
+            if (resultCode == RESULT_OK && data != null) {
+                statusText.text = "تم منح إذن تصوير الشاشة! جاري بث الشاشة والصوت إلى الرسيفر..."
+            } else {
+                statusText.text = "تم إلغاء إذن بث الشاشة."
+            }
         }
     }
 
@@ -77,7 +103,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (foundDevices.isNotEmpty()) {
                         val ipList = foundDevices.joinToString("\n")
-                        statusText.text = "تم العثور على الرسيفر بنجاح! 🎉\n\nالعناوين المكتشفة:\n" + ipList + "\n\n(جاهز للربط مع MS-MINI2727_Forever)"
+                        statusText.text = "تم العثور على الرسيفر بنجاح! 🎉\n\nالعناوين المكتشفة:\n" + ipList + "\n\n(جاهز لبث الشاشة لـ MS-MINI2727_Forever)"
                     } else {
                         statusText.text = "لم يتم التقاط الرسيفر.\nتأكد أن الرسيفر والهاتف متصلان بنفس الـ Wi-Fi."
                     }
