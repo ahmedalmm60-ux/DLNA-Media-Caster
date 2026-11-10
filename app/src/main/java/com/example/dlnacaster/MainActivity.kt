@@ -37,7 +37,6 @@ class MainActivity : AppCompatActivity() {
                 multicastLock = wifi.createMulticastLock("dlnaScanLock")
                 multicastLock.acquire()
 
-                // أنواع البحث المتعددة لتغطية كافة رسيفرات الفوريفر و MediaStar
                 val searchTargets = listOf(
                     "ssdp:all",
                     "upnp:rootdevice",
@@ -55,22 +54,3 @@ class MainActivity : AppCompatActivity() {
                             "HOST: 239.255.255.250:1900\r\n" +
                             "MAN: \"ssdp:discover\"\r\n" +
                             "MX: 2\r\n" +
-                            "ST: $target\r\n\r\n"
-
-                    val sendData = ssdpMessage.toByteArray()
-                    val sendPacket = DatagramPacket(sendData, sendData.size, InetAddress.getByName("239.255.255.250"), 1900)
-                    socket.send(sendPacket)
-                }
-
-                val startTime = System.currentTimeMillis()
-                val buffer = ByteArray(2048)
-
-                // الاستماع للاستجابات لمدّة 4 ثوانٍ لجمع الأجهزة المتوفرة
-                while (System.currentTimeMillis() - startTime < 4000) {
-                    try {
-                        val receivePacket = DatagramPacket(buffer, buffer.size)
-                        socket.receive(receivePacket)
-                        val remoteIp = receivePacket.address.hostAddress
-                        
-                        foundDevices.add(remoteIp)
-                    } catch
