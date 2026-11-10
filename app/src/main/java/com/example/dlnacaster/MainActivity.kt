@@ -1,4 +1,3 @@
-```kotlin
 package com.example.dlnacaster
 
 import android.os.Bundle
@@ -43,13 +42,12 @@ class MainActivity : AppCompatActivity() {
                 val sendPacket = DatagramPacket(sendData, sendData.size, InetAddress.getByName("239.255.255.250"), 1900)
                 
                 socket.send(sendPacket)
-                socket.soTimeout = 4000 // انتظار الاستجابة لمدة 4 ثوانٍ
+                socket.soTimeout = 4000
 
                 val buffer = ByteArray(1024)
                 val receivePacket = DatagramPacket(buffer, buffer.size)
                 
                 socket.receive(receivePacket)
-                val response = String(receivePacket.data, 0, receivePacket.length)
                 val remoteIp = receivePacket.address.hostAddress
 
                 runOnUiThread {
@@ -64,4 +62,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-```
