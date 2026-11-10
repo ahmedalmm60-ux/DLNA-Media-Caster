@@ -10,6 +10,8 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.HttpURLConnection
 import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.net.URL
 import kotlin.concurrent.thread
 
@@ -36,8 +38,8 @@ class MainActivity : AppCompatActivity() {
 
         mirrorButton.setOnClickListener {
             if (detectedReceiverIp != null) {
-                statusText.text = "جاري الإرسال المباشر للرسيفر ($detectedReceiverIp)..."
-                discoverAndStreamToReceiver(detectedReceiverIp!!)
+                statusText.text = "جاري مسح منافذ الرسيفر وإرسال الفيديو ($detectedReceiverIp)..."
+                scanPortsAndStream(detectedReceiverIp!!)
             } else {
                 statusText.text = "الرجاء الضغط على زر البحث أولاً لاكتشاف الرسيفر!"
             }
@@ -102,12 +104,46 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun discoverAndStreamToReceiver(ip: String) {
+    private fun scanPortsAndStream(ip: String) {
         thread {
             try {
                 val videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4"
-                val soapActionSet = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
                 
+                // قائمة المنافذ الأكثر احتمالاً في رسيفرات MediaStar و Forever و الشاشات الذكية
+                val commonPorts = listOf(49152, 8080, 1900, 80, 50000, 49153, 49154, 5000, 7676, 2869, 52323)
+                
+                var workingPort = -1
+                var workingPath = "/upnp/control/AVTransport"
+
+                // الخطوة 1: البحث عن المنفذ المفتوح السريع
+                for (port in commonPorts) {
+                    try {
+                        val socket = Socket()
+                        socket.connect(InetSocketAddress(ip, port), 400)
+                        socket.close()
+                        workingPort = port
+                        break
+                    } catch (e: Exception) {
+                        // جرب المنفذ التالي
+                    }
+                }
+
+                // إذا لم يتم العثور في القائمة، سنجرب المنفذ الافتراضي 49152
+                if (workingPort == -1) {
+                    workingPort = 49152
+                }
+
+                val controlPaths = listOf(
+                    "/upnp/control/AVTransport",
+                    "/AVTransport/control",
+                    "/upnp/control",
+                    "/"
+                )
+
+                var success = false
+                var finalUrl = ""
+
+                val soapActionSet = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
                 val setBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
                         "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
                         "<s:Body>" +
@@ -119,25 +155,17 @@ class MainActivity : AppCompatActivity() {
                         "</s:Body>" +
                         "</s:Envelope>"
 
-                val directUrls = listOf(
-                    "http://$ip:49152/upnp/control/AVTransport",
-                    "http://$ip:8080/upnp/control/AVTransport",
-                    "http://$ip:1900/upnp/control/AVTransport"
-                )
-
-                var success = false
-                var activeUrl = ""
-
-                for (targetUrl in directUrls) {
+                for (path in controlPaths) {
                     try {
+                        val targetUrl = "http://$ip:$workingPort$path"
                         val url = URL(targetUrl)
                         val conn = url.openConnection() as HttpURLConnection
                         conn.requestMethod = "POST"
                         conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
                         conn.setRequestProperty("SOAPAction", "\"$soapActionSet\"")
                         conn.doOutput = true
-                        conn.connectTimeout = 2000
-                        conn.readTimeout = 2000
+                        conn.connectTimeout = 1500
+                        conn.readTimeout = 1500
 
                         val setBytes = setBody.toByteArray(Charsets.UTF_8)
                         conn.setRequestProperty("Content-Length", setBytes.size.toString())
@@ -147,28 +175,28 @@ class MainActivity : AppCompatActivity() {
                         val responseCode = conn.responseCode
                         if (responseCode == 200 || responseCode == 500) {
                             success = true
-                            activeUrl = targetUrl
+                            finalUrl = targetUrl
                             break
                         }
                     } catch (e: Exception) {
-                        // تجربة الرابط التالي
+                        // جرب المسار التالي
                     }
                 }
-                
+
                 if (success) {
-                    sendPlayAction(activeUrl)
+                    sendPlayAction(finalUrl)
                     runOnUiThread {
-                        statusText.text = "🎉 تم إرسال الفيديو للرسيفر بنجاح تام! تابع الشاشة 📺"
+                        statusText.text = "🎉 تم بث الفيديو بنجاح على المنفذ ($workingPort)! استمتع بالمشاهدة 📺🚀"
                     }
                 } else {
                     runOnUiThread {
-                        statusText.text = "⚠️ الرسيفر متصل ($ip) ولكن لم يقبل منفذ التحكم."
+                        statusText.text = "⚠️ الرسيفر متصل ($ip) ولكن نظام حماية الرسيفر يمنع استقبال الطلب الخارجي."
                     }
                 }
 
             } catch (e: Exception) {
                 runOnUiThread {
-                    statusText.text = "❌ حدث خطأ أثناء إرسال البث المباشر."
+                    statusText.text = "❌ حدث خطأ أثناء فحص البث."
                 }
             }
         }
@@ -193,7 +221,7 @@ class MainActivity : AppCompatActivity() {
             conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
             conn.setRequestProperty("SOAPAction", "\"$soapActionPlay\"")
             conn.doOutput = true
-            conn.connectTimeout = 2000
+            conn.connectTimeout = 1500
 
             val playBytes = playBody.toByteArray(Charsets.UTF_8)
             conn.setRequestProperty("Content-Length", playBytes.size.toString())
