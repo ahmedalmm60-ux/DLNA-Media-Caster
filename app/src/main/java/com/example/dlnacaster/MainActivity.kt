@@ -6,8 +6,6 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.HttpURLConnection
@@ -32,13 +30,13 @@ class MainActivity : AppCompatActivity() {
         mirrorButton = findViewById(R.id.mirrorButton)
 
         scanButton.setOnClickListener {
-            statusText.text = "جاري البحث عن رسيفر MediaStar وكشف منافذه..."
+            statusText.text = "جاري البحث عن رسيفر MediaStar..."
             searchAndConnectDlna()
         }
 
         mirrorButton.setOnClickListener {
             if (detectedReceiverIp != null) {
-                statusText.text = "جاري جلب وصف الرسيفر وبث الفيديو ($detectedReceiverIp)..."
+                statusText.text = "جاري الإرسال المباشر للرسيفر ($detectedReceiverIp)..."
                 discoverAndStreamToReceiver(detectedReceiverIp!!)
             } else {
                 statusText.text = "الرجاء الضغط على زر البحث أولاً لاكتشاف الرسيفر!"
@@ -88,7 +86,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (foundIp != null) {
                         detectedReceiverIp = foundIp
-                        statusText.text = "تم اكتشاف الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر بدء البث."
+                        statusText.text = "تم العثور على الرسيفر! 🟢\nIP: $foundIp\n\nاضغط الآن على زر بدء البث."
                     } else {
                         statusText.text = "لم يتم العثور على الرسيفر. تأكد من اتصال الواي فاي."
                     }
@@ -107,50 +105,6 @@ class MainActivity : AppCompatActivity() {
     private fun discoverAndStreamToReceiver(ip: String) {
         thread {
             try {
-                val ports = listOf(49152, 8080, 5000, 1900, 80, 49153, 49154)
-                var controlUrlFound: String? = null
-
-                for (port in ports) {
-                    try {
-                        val descUrls = listOf(
-                            "http://$ip:$port/description.xml",
-                            "http://$ip:$port/buffet/descs/device_description.xml",
-                            "http://$ip:$port/upnp/desc.xml"
-                        )
-                        
-                        for (descUrl in descUrls) {
-                            try {
-                                val url = URL(descUrl)
-                                val conn = url.openConnection() as HttpURLConnection
-                                conn.connectTimeout = 1000
-                                conn.readTimeout = 1000
-                                if (conn.responseCode == 200) {
-                                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                                    val response = StringBuilder()
-                                    var line: String?
-                                    while (reader.readLine().also { line = it } != null) {
-                                        response.append(line)
-                                    }
-                                    reader.close()
-                                    
-                                    val xml = response.toString()
-                                    if (xml.contains("AVTransport")) {
-                                        controlUrlFound = "http://$ip:$port/upnp/control/AVTransport"
-                                        break
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                // متابعة الفحص
-                            }
-                        }
-                        if (controlUrlFound != null) break
-                    } catch (e: Exception) {
-                        // متابعة المنفذ التالي
-                    }
-                }
-
-                val finalControlUrl = controlUrlFound ?: "http://$ip:49152/upnp/control/AVTransport"
-
                 val videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4"
                 val soapActionSet = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
                 
@@ -165,35 +119,56 @@ class MainActivity : AppCompatActivity() {
                         "</s:Body>" +
                         "</s:Envelope>"
 
-                val url = URL(finalControlUrl)
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
-                conn.setRequestProperty("SOAPAction", "\"$soapActionSet\"")
-                conn.doOutput = true
-                conn.connectTimeout = 2000
+                val directUrls = listOf(
+                    "http://$ip:49152/upnp/control/AVTransport",
+                    "http://$ip:8080/upnp/control/AVTransport",
+                    "http://$ip:1900/upnp/control/AVTransport"
+                )
 
-                val setBytes = setBody.toByteArray(Charsets.UTF_8)
-                conn.setRequestProperty("Content-Length", setBytes.size.toString())
-                conn.outputStream.write(setBytes)
-                conn.outputStream.flush()
+                var success = false
+                var activeUrl = ""
 
-                val responseCode = conn.responseCode
+                for (targetUrl in directUrls) {
+                    try {
+                        val url = URL(targetUrl)
+                        val conn = url.openConnection() as HttpURLConnection
+                        conn.requestMethod = "POST"
+                        conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
+                        conn.setRequestProperty("SOAPAction", "\"$soapActionSet\"")
+                        conn.doOutput = true
+                        conn.connectTimeout = 2000
+                        conn.readTimeout = 2000
+
+                        val setBytes = setBody.toByteArray(Charsets.UTF_8)
+                        conn.setRequestProperty("Content-Length", setBytes.size.toString())
+                        conn.outputStream.write(setBytes)
+                        conn.outputStream.flush()
+
+                        val responseCode = conn.responseCode
+                        if (responseCode == 200 || responseCode == 500) {
+                            success = true
+                            activeUrl = targetUrl
+                            break
+                        }
+                    } catch (e: Exception) {
+                        // تجربة الرابط التالي
+                    }
+                }
                 
-                if (responseCode == 200 || responseCode == 500) {
-                    sendPlayAction(finalControlUrl)
+                if (success) {
+                    sendPlayAction(activeUrl)
                     runOnUiThread {
-                        statusText.text = "🎉 تم بث الفيديو بنجاح إلى الرسيفر! استمتع بالشاشة 📺"
+                        statusText.text = "🎉 تم إرسال الفيديو للرسيفر بنجاح تام! تابع الشاشة 📺"
                     }
                 } else {
                     runOnUiThread {
-                        statusText.text = "⚠️ استجاب الرسيفر ولكن برمز الحالة: $responseCode"
+                        statusText.text = "⚠️ الرسيفر متصل ($ip) ولكن لم يقبل منفذ التحكم."
                     }
                 }
 
             } catch (e: Exception) {
                 runOnUiThread {
-                    statusText.text = "❌ فشل الاتصال بخدمة الرسيفر الداخلية."
+                    statusText.text = "❌ حدث خطأ أثناء إرسال البث المباشر."
                 }
             }
         }
