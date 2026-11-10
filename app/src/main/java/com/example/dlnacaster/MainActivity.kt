@@ -129,12 +129,16 @@ class MainActivity : AppCompatActivity() {
                         val url = URL("http://$ip:$port/upnp/control/AVTransport")
                         val conn = url.openConnection() as HttpURLConnection
                         conn.requestMethod = "POST"
+                        conn.setRequestProperty("Host", "$ip:$port")
                         conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
                         conn.setRequestProperty("SOAPAction", "\"$soapAction\"")
                         conn.doOutput = true
                         conn.connectTimeout = 3000
 
-                        conn.outputStream.write(soapBody.toByteArray())
+                        val bytes = soapBody.toByteArray(Charsets.UTF_8)
+                        conn.setRequestProperty("Content-Length", bytes.size.toString())
+
+                        conn.outputStream.write(bytes)
                         conn.outputStream.flush()
 
                         if (conn.responseCode == 200) {
@@ -143,7 +147,7 @@ class MainActivity : AppCompatActivity() {
                             break
                         }
                     } catch (e: Exception) {
-                        // جرب المنفذ التالي
+                        // ignore and try next port
                     }
                 }
 
@@ -178,15 +182,19 @@ class MainActivity : AppCompatActivity() {
             val url = URL("http://$ip:$port/upnp/control/AVTransport")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
+            conn.setRequestProperty("Host", "$ip:$port")
             conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
             conn.setRequestProperty("SOAPAction", "\"$soapAction\"")
             conn.doOutput = true
             conn.connectTimeout = 2000
-            conn.outputStream.write(soapBody.toByteArray())
+            
+            val bytes = soapBody.toByteArray(Charsets.UTF_8)
+            conn.setRequestProperty("Content-Length", bytes.size.toString())
+            conn.outputStream.write(bytes)
             conn.outputStream.flush()
             conn.responseCode
         } catch (e: Exception) {
-            // تجاهل الخطأ
+            // ignore
         }
     }
 }
