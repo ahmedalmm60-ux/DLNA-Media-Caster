@@ -14,12 +14,22 @@
         android:textSize="16sp"
         android:padding="12dp" />
 
+    <Button
+        android:id="@+id/mirrorButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="بدء بث الشاشة (Screen Mirroring)"
+        android:textSize="16sp"
+        android:padding="12dp"
+        android:layout_marginTop="16dp"
+        android:backgroundTint="#4CAF50" />
+
     <TextView
         android:id="@+id/statusText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="لم يتم العثور على أي رسيفر، تأكد أن الهاتف والرسيفر متصلان بنفس شبكة Wi-Fi."
+        android:text="جاهز للاتصال وبث الشاشة إلى رسيفر MediaStar."
         android:textSize="16sp"
         android:gravity="center" />
 
