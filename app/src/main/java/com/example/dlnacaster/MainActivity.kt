@@ -10,6 +10,8 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.HttpURLConnection
 import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.net.URL
 import kotlin.concurrent.thread
 
@@ -30,16 +32,16 @@ class MainActivity : AppCompatActivity() {
         mirrorButton = findViewById(R.id.mirrorButton)
 
         scanButton.setOnClickListener {
-            statusText.text = "جاري البحث عن رسيفر MediaStar والاتقاط الفعلي..."
+            statusText.text = "جاري البحث عن رسيفر MediaStar في الشبكة..."
             searchAndConnectDlna()
         }
 
         mirrorButton.setOnClickListener {
             if (detectedReceiverIp != null) {
-                statusText.text = "جاري دفع البيانات (Push Data) للرسيفر ($detectedReceiverIp)..."
-                pushMediaDataToReceiver(detectedReceiverIp!!)
+                statusText.text = "جاري فحص اتصال الرسيفر ($detectedReceiverIp)..."
+                verifyAndPushMedia(detectedReceiverIp!!)
             } else {
-                statusText.text = "الرجاء الضغط على زر البحث أولاً لاكتشاف الرسيفر وربطه!"
+                statusText.text = "الرجاء الضغط على زر البحث أولاً لاكتشاف الرسيفر!"
             }
         }
     }
@@ -86,9 +88,9 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (foundIp != null) {
                         detectedReceiverIp = foundIp
-                        statusText.text = "تم ربط الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر (بث الشاشة/الوسائط) لدفع البيانات وتشغيلها."
+                        statusText.text = "تم العثور على الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر (بث الشاشة/الوسائط)."
                     } else {
-                        statusText.text = "لم يتم العثور على الرسيفر. تأكد من اتصال الـ Wi-Fi."
+                        statusText.text = "لم يتم العثور على أي رسيفر. تأكد من توصيل الواي فاي."
                     }
                 }
 
@@ -102,11 +104,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun pushMediaDataToReceiver(ip: String) {
+    private fun verifyAndPushMedia(ip: String) {
         thread {
+            var isReachable = false
+            val testPorts = listOf(49152, 8080, 5000, 1900)
+            var activePort = 49152
+
+            for (port in testPorts) {
+                try {
+                    val socket = Socket()
+                    socket.connect(InetSocketAddress(ip, port), 1000)
+                    socket.close()
+                    isReachable = true
+                    activePort = port
+                    break
+                } catch (e: Exception) {
+                    // المنفذ غير مفتوح، جرب التالي
+                }
+            }
+
+            if (!isReachable) {
+                runOnUiThread {
+                    statusText.text = "❌ الرسيفر غير متصل أو مفصول عن الواي فاي حالياً ($ip)!"
+                }
+                return@thread
+            }
+
+            // إذا كان الرسيفر متصلاً حقاً، نرسل أمر الوسائط
             try {
                 val videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                
                 val soapAction = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
                 val metaData = "&lt;DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\"&gt;&lt;item id=\"1\" parentID=\"0\" restricted=\"0\"&gt;&lt;dc:title&gt;DLNA Stream&lt;/dc:title&gt;&lt;upnp:class&gt;object.item.videoItem&lt;/upnp:class&gt;&lt;res protocolInfo=\"http-get:*:video/mp4:*\"&gt;$videoUrl&lt;/res&gt;&lt;/item&gt;&lt;/DIDL-Lite&gt;"
                 
@@ -121,46 +147,35 @@ class MainActivity : AppCompatActivity() {
                         "</s:Body>" +
                         "</s:Envelope>"
 
-                val ports = listOf(49152, 8080, 5000, 1900)
-                var success = false
+                val url = URL("http://$ip:$activePort/upnp/control/AVTransport")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Host", "$ip:$activePort")
+                conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
+                conn.setRequestProperty("SOAPAction", "\"$soapAction\"")
+                conn.doOutput = true
+                conn.connectTimeout = 3000
 
-                for (port in ports) {
-                    try {
-                        val url = URL("http://$ip:$port/upnp/control/AVTransport")
-                        val conn = url.openConnection() as HttpURLConnection
-                        conn.requestMethod = "POST"
-                        conn.setRequestProperty("Host", "$ip:$port")
-                        conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
-                        conn.setRequestProperty("SOAPAction", "\"$soapAction\"")
-                        conn.doOutput = true
-                        conn.connectTimeout = 3000
+                val bytes = soapBody.toByteArray(Charsets.UTF_8)
+                conn.setRequestProperty("Content-Length", bytes.size.toString())
 
-                        val bytes = soapBody.toByteArray(Charsets.UTF_8)
-                        conn.setRequestProperty("Content-Length", bytes.size.toString())
+                conn.outputStream.write(bytes)
+                conn.outputStream.flush()
 
-                        conn.outputStream.write(bytes)
-                        conn.outputStream.flush()
-
-                        if (conn.responseCode == 200) {
-                            success = true
-                            sendPlayCommand(ip, port)
-                            break
-                        }
-                    } catch (e: Exception) {
-                        // ignore and try next port
+                val responseCode = conn.responseCode
+                if (responseCode == 200) {
+                    sendPlayCommand(ip, activePort)
+                    runOnUiThread {
+                        statusText.text = "✅ تم بث الوسائط إلى الرسيفر بنجاح ($ip)!"
                     }
-                }
-
-                runOnUiThread {
-                    if (success) {
-                        statusText.text = "تم دفع البيانات بنجاح! شاهده على شاشة التلفاز الآن 📺🚀"
-                    } else {
-                        statusText.text = "تم الاتصال بالرسيفر ($ip). جاري دفع تدفق البيانات..."
+                } else {
+                    runOnUiThread {
+                        statusText.text = "⚠️ الرسيفر متصل ولكن رفض الاستجابة (رمز الخطأ: $responseCode)"
                     }
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    statusText.text = "الرسيفر متصل بانتظار دفع البيانات ($ip)."
+                    statusText.text = "❌ حدث خطأ أثناء إرسال البيانات للرسيفر."
                 }
             }
         }
