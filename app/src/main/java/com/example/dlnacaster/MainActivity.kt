@@ -75,34 +75,3 @@ class MainActivity : AppCompatActivity() {
                         val receivePacket = DatagramPacket(buffer, buffer.size)
                         socket.receive(receivePacket)
                         foundIp = receivePacket.address.hostAddress
-                        if (foundIp != null) break
-                    } catch (ex: Exception) {
-                        // ignore timeout
-                    }
-                }
-
-                socket.close()
-
-                runOnUiThread {
-                    if (foundIp != null) {
-                        detectedReceiverIp = foundIp
-                        statusText.text = "تم ربط الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر (بث الشاشة/الوسائط) للتشغيل الفعلي."
-                    } else {
-                        statusText.text = "لم يتم العثور على الرسيفر. تأكد من اتصال الـ Wi-Fi."
-                    }
-                }
-
-            } catch (e: Exception) {
-                runOnUiThread {
-                    statusText.text = "خطأ في الشبكة: ${e.localizedMessage}"
-                }
-            } finally {
-                multicastLock?.let { if (it.isHeld) it.release() }
-            }
-        }
-    }
-
-    private fun sendDlnaSoapCommand(ip: String) {
-        thread {
-            try {
-                val videoUrl = "
