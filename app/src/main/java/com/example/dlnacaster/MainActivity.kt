@@ -50,7 +50,48 @@ class MainActivity : AppCompatActivity() {
                 val foundDevices = mutableSetOf<String>()
 
                 for (target in searchTargets) {
-                    val ssdpMessage = "M-SEARCH * HTTP/1.1\r\n" +
-                            "HOST: 239.255.255.250:1900\r\n" +
-                            "MAN: \"ssdp:discover\"\r\n" +
-                            "MX: 2\r\n" +
+                    val ssdpMessage = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 2\r\nST: " + target + "\r\n\r\n"
+                    val sendData = ssdpMessage.toByteArray()
+                    val sendPacket = DatagramPacket(sendData, sendData.size, InetAddress.getByName("239.255.255.250"), 1900)
+                    socket.send(sendPacket)
+                }
+
+                val startTime = System.currentTimeMillis()
+                val buffer = ByteArray(2048)
+
+                while (System.currentTimeMillis() - startTime < 4000) {
+                    try {
+                        val receivePacket = DatagramPacket(buffer, buffer.size)
+                        socket.receive(receivePacket)
+                        val remoteIp = receivePacket.address.hostAddress
+                        if (remoteIp != null) {
+                            foundDevices.add(remoteIp)
+                        }
+                    } catch (ex: Exception) {
+                        // ignore timeout
+                    }
+                }
+
+                socket.close()
+
+                runOnUiThread {
+                    if (foundDevices.isNotEmpty()) {
+                        val ipList = foundDevices.joinToString("\n")
+                        statusText.text = "تم العثور على الرسيفر بنجاح! 🎉\n\nالعناوين المكتشفة:\n" + ipList + "\n\n(جاهز للربط مع MS-MINI2727_Forever)"
+                    } else {
+                        statusText.text = "لم يتم التقاط الرسيفر.\nتأكد أن الرسيفر والهاتف متصلان بنفس الـ Wi-Fi."
+                    }
+                }
+
+            } catch (e: Exception) {
+                runOnUiThread {
+                    statusText.text = "حدث خطأ أثناء الاتصال بالشبكة: " + e.localizedMessage
+                }
+            } finally {
+                multicastLock?.let {
+                    if (it.isHeld) it.release()
+                }
+            }
+        }
+    }
+}
