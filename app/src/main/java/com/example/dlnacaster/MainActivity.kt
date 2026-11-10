@@ -36,8 +36,8 @@ class MainActivity : AppCompatActivity() {
 
         mirrorButton.setOnClickListener {
             if (detectedReceiverIp != null) {
-                statusText.text = "جاري إرسال امر تشغيل الوسائط إلى الرسيفر ($detectedReceiverIp)..."
-                sendPlayCommandToReceiver(detectedReceiverIp!!)
+                statusText.text = "جاري إرسال أمر عرض الفيديو للرسيفر ($detectedReceiverIp)..."
+                sendDlnaSoapCommand(detectedReceiverIp!!)
             } else {
                 statusText.text = "الرجاء الضغط على زر البحث أولاً لاكتشاف الرسيفر وربطه!"
             }
@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (foundIp != null) {
                         detectedReceiverIp = foundIp
-                        statusText.text = "تم ربط الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر (بث الشاشة/الوسائط) للبدء الفعلي."
+                        statusText.text = "تم ربط الرسيفر بنجاح! 🟢\nIP: $foundIp\n\nاضغط الآن على زر (بث الشاشة/الوسائط) للتشغيل الفعلي."
                     } else {
                         statusText.text = "لم يتم العثور على الرسيفر. تأكد من اتصال الـ Wi-Fi."
                     }
@@ -102,22 +102,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendPlayCommandToReceiver(ip: String) {
+    private fun sendDlnaSoapCommand(ip: String) {
         thread {
             try {
-                val url = URL("http://$ip:49152/")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.connectTimeout = 3000
-                connection.connect()
-                
-                runOnUiThread {
-                    statusText.text = "تم الاتصال بالرسيفر ($ip) بنجاح وإرسال أمر الوسائط! 📺🔥"
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    statusText.text = "تم الاتصال بالرسيفر عبر الشبكة بنجاح! (IP: $ip)\nالرسيفر متصل وجاهز للاستقبال."
-                }
-            }
-        }
-    }
-}
+                val videoUrl = "
