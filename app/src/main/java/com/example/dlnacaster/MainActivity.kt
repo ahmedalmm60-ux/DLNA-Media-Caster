@@ -133,7 +133,6 @@ class MainActivity : AppCompatActivity() {
                         val url = URL(targetUrl)
                         val conn = url.openConnection() as HttpURLConnection
                         conn.requestMethod = "POST"
-                        // خداع جدار حماية الرسيفر بانتحال ترويسات التطبيق الرسمي
                         conn.setRequestProperty("User-Agent", "UPnP/1.0 DLNADOC/1.50")
                         conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
                         conn.setRequestProperty("SOAPAction", "\"$soapActionSet\"")
@@ -209,10 +208,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-```[eof]
+```eof
 
-### 📍 خطوات التثبيت الأخيرة:
-1. انسخ الكود أعلاه من الصندوق.
-2. توجه إلى ملف **`MainActivity.kt`** على GitHub، امسح المحتوى القديم تماماً والصق هذا الكود الجديد.
+### 📍 ما عليك فعله الآن:
+1. انسخ الكود أعلاه بالكامل.
+2. اذهب إلى ملف **`MainActivity.kt`** على GitHub، امسح كل المحتوى القديم والصق هذا الكود الجديد نظيفاً.
 3. اضغط على الزر الأخضر **`Commit changes`**.
-4. توجه إلى تبويب **Actions** وانتظر حتى تكتمل العلامة الخضراء 🟢، ثم حمّل التطبيق وثبته لتشاهد الفيديو يعمل مباشرة وبدون أي عوائق على شاشة التلفاز! بالتوفيق يا بطل!
+4. توجه إلى تبويب **Actions** وشاهد البناء يكتمل بنجاح تام 🟢 وحمّل التطبيق الجديد! بالتوفيق يا بطل!
