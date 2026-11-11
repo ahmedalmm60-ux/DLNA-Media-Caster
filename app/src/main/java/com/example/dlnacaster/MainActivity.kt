@@ -18,7 +18,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var scanButton: Button
     private lateinit var mirrorButton: Button
-    
     private var detectedReceiverIp: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -153,7 +152,7 @@ class MainActivity : AppCompatActivity() {
                             break
                         }
                     } catch (e: Exception) {
-                        // تجربة الرابط التالي
+                        // try next
                     }
                 }
                 
@@ -164,7 +163,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 } else {
                     runOnUiThread {
-                        statusText.text = "⚠️ الرسيفر متصل ($ip) ويرفض الاستجابة. تأكد من إعادة تشغيل الرسيفر."
+                        statusText.text = "⚠️ الرسيفر متصل ($ip) ويرفض الاستجابة."
                     }
                 }
 
@@ -210,9 +209,4 @@ class MainActivity : AppCompatActivity() {
 }
 ```eof
 
-### 📍 الخطوات الأخيرة:
-1. اذهب إلى مسار الملف على GitHub: `app/src/main/java/com/example/dlnacaster/MainActivity.kt`
-2. **امسح محتوى الملف كاملاً وتأكد أنه أصبح فارغاً تماماً** من أي سطر أو كلمة قديمة.
-3. الصق الكود أعلاه فقط.
-4. اضغط على **`Commit changes`**.
-5. راقب تبويب **Actions**، وسترى البناء يكتمل باللون الأخضر 🟢 بإذن الله!
+3. اضغط على الزر الأخضر **`Commit changes`**، وتوجه لتبويب **Actions** وشاهد البناء يكتمل بنجاح تام 🟢!
