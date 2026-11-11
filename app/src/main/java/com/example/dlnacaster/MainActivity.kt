@@ -194,4 +194,25 @@ class MainActivity : AppCompatActivity() {
             conn.requestMethod = "POST"
             conn.setRequestProperty("User-Agent", "UPnP/1.0 DLNADOC/1.50")
             conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
-            
+            conn.setRequestProperty("SOAPAction", "\"$soapActionPlay\"")
+            conn.doOutput = true
+            conn.connectTimeout = 2000
+
+            val playBytes = playBody.toByteArray(Charsets.UTF_8)
+            conn.setRequestProperty("Content-Length", playBytes.size.toString())
+            conn.outputStream.write(playBytes)
+            conn.outputStream.flush()
+            conn.responseCode
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
+}
+```eof
+
+### 📍 الخطوات الأخيرة للنجاح:
+1. اذهب إلى ملف **`MainActivity.kt`** على GitHub.
+2. **امسح محتوى الملف كاملاً** وتأكد أنه فارغ تماماً.
+3. الصق الكود الجديد أعلاه فقط.
+4. اضغط على الزر الأخضر **`Commit changes`**.
+5. راقب تبويب **Actions**، وسيتحول إلى اللون الأخضر 🟢 بإذن الله لينجح البناء تماماً!
