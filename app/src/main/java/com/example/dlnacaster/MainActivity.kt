@@ -105,11 +105,11 @@ class MainActivity : AppCompatActivity() {
     private fun bypassAndStream(ip: String) {
         thread {
             try {
-                val videoUrl = "[https://www.w3schools.com/html/mov_bbb.mp4](https://www.w3schools.com/html/mov_bbb.mp4)"
+                val videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4"
                 val soapActionSet = "urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"
                 
                 val setBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
-                        "<s:Envelope xmlns:s=\"[http://schemas.xmlsoap.org/soap/envelope/](http://schemas.xmlsoap.org/soap/envelope/)\" s:encodingStyle=\"[http://schemas.xmlsoap.org/soap/encoding/](http://schemas.xmlsoap.org/soap/encoding/)\">" +
+                        "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
                         "<s:Body>" +
                         "<u:SetAVTransportURI xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">" +
                         "<InstanceID>0</InstanceID>" +
@@ -180,7 +180,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val soapActionPlay = "urn:schemas-upnp-org:service:AVTransport:1#Play"
             val playBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
-                    "<s:Envelope xmlns:s=\"[http://schemas.xmlsoap.org/soap/envelope/](http://schemas.xmlsoap.org/soap/envelope/)\" s:encodingStyle=\"[http://schemas.xmlsoap.org/soap/encoding/](http://schemas.xmlsoap.org/soap/encoding/)\">" +
+                    "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">" +
                     "<s:Body>" +
                     "<u:Play xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\">" +
                     "<InstanceID>0</InstanceID>" +
@@ -194,24 +194,4 @@ class MainActivity : AppCompatActivity() {
             conn.requestMethod = "POST"
             conn.setRequestProperty("User-Agent", "UPnP/1.0 DLNADOC/1.50")
             conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
-            conn.setRequestProperty("SOAPAction", "\"$soapActionPlay\"")
-            conn.doOutput = true
-            conn.connectTimeout = 2000
-
-            val playBytes = playBody.toByteArray(Charsets.UTF_8)
-            conn.setRequestProperty("Content-Length", playBytes.size.toString())
-            conn.outputStream.write(playBytes)
-            conn.outputStream.flush()
-            conn.responseCode
-        } catch (e: Exception) {
-            // ignore
-        }
-    }
-}
-```eof
-
-### 📍 ما عليك فعله:
-1. انسخ الكود أعلاه من الصندوق.
-2. توجه إلى ملف **`MainActivity.kt`** على GitHub، **امسح كل محتوى الملف بالكامل** وتأكد أنه فارغ، ثم الصق هذا الكود فقط.
-3. اضغط على الزر الأخضر **`Commit changes`**.
-4. توجه إلى تبويب **Actions** وشاهد عملية البناء تنجح تماماً باللون الأخضر 🟢 وتحميل التطبيق الجاهز! بالتوفيق يا بطل!
+            
