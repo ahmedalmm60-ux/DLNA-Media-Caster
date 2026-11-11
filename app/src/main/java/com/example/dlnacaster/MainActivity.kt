@@ -152,7 +152,7 @@ class MainActivity : AppCompatActivity() {
                             break
                         }
                     } catch (e: Exception) {
-                        // try next
+                        // ignore
                     }
                 }
                 
@@ -209,4 +209,8 @@ class MainActivity : AppCompatActivity() {
 }
 ```eof
 
-3. اضغط على الزر الأخضر **`Commit changes`**، وتوجه لتبويب **Actions** وشاهد البناء يكتمل بنجاح تام 🟢!
+### 📍 الخطوات الأخيرة:
+1. اذهب إلى ملف **`MainActivity.kt`** على GitHub.
+2. امسح المحتوى **بالكامل** (تأكد أن الملف أصبح فارغاً 100%).
+3. انسخ الكود من الصندوق أعلاه والصقه، ثم اضغط **`Commit changes`**.
+4. راقب تبويب **Actions**، وسترى البناء يكتمل بنجاح تام 🟢!
